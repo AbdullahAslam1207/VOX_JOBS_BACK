@@ -1,0 +1,19 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Python virtual environment (if you’re using FastAPI)
+venv/
+.venv/
+
+# System / editor files
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
