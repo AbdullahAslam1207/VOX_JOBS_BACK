@@ -57,8 +57,41 @@ async def get_jobs(db: db_dependency):
     jobs = db.query(Job).all()
     return jobs
 
+ALLOWED_CITIES = {"Lahore", "Karachi", "Islamabad", "Rawalpindi"}
+
 @router.get("/get_jobs_by_city", response_model=list[JobCreateRequest])
 async def get_jobs_by_city(
-    city: str,db: db_dependency):
+    city: str, db: db_dependency
+):
+    # Validate city
+    if city not in ALLOWED_CITIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid city '{city}'. Allowed cities: {', '.join(ALLOWED_CITIES)}"
+        )
+
+    # Fetch jobs from the allowed city
     jobs = db.query(Job).filter(Job.city == city).all()
     return jobs
+
+@router.get("/get_jobs_by_title", response_model=list[JobCreateRequest])
+async def get_jobs_by_title(title: str, db: db_dependency):
+    # Step 1: Try exact match first
+    exact_matches = db.query(Job).filter(Job.title.ilike(title)).all()
+
+    if exact_matches:
+        return exact_matches
+
+    # Step 2: If no exact match, do a partial search
+    keywords = title.split()  # e.g. "AI Engineer" → ["AI", "Engineer"]
+    partial_matches = (
+        db.query(Job)
+        .filter(Job.title.ilike(f"%{keywords[0]}%"))  # take the first keyword
+        .all()
+    )
+
+    if partial_matches:
+        return partial_matches
+
+    # Step 3: If still none, return empty list
+    return []

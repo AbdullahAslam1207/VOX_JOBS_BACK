@@ -36,7 +36,9 @@ def validate_password_strength(password: str) -> str:
     
     if not any(c in "!@#$%^&*(),.?\":{}|<>" for c in password):
         raise HTTPException(status_code=401, detail="Password must contain at least one special character")
+    print(password)
     return password
+
 
 class CreateUserRequest(BaseModel):
     fullname: str = Field(..., pattern=r"^[a-zA-Z0-9_\s]+$", max_length=50)

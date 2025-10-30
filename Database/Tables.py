@@ -13,7 +13,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     fullname = Column(String(50), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(512), nullable=False)
     role = Column(String(20), default="customer")  
     is_active = Column(Boolean, default=True)
   

@@ -73,7 +73,7 @@ async def start_scraper():
         
 
     print("=== Starting All Scrapers ===")
-    #run_node_scraper()
+    run_node_scraper()
     await run_other_python_scrapers()
     clean()
     await insert_jobs_from_json("Scrapping/Scrappers/Data/final_jobs.json")
