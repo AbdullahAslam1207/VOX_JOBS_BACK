@@ -18,7 +18,13 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Password hashing context
-bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt_sha256 pre-hashes long passwords and avoids bcrypt's 72-byte limit.
+# Keep bcrypt listed for compatibility with existing stored hashes.
+bcrypt_context = CryptContext(
+    schemes=["bcrypt_sha256", "bcrypt"],
+    default="bcrypt_sha256",
+    deprecated="auto",
+)
 
 # OAuth2
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/auth/login")

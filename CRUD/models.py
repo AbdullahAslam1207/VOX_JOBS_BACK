@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 from Database.Database_connection import db_dependency
-from Database.Tables import Job
+from Database.Tables import Job, FavoriteJob
 
 class JobCreateRequest(BaseModel):
     id: Optional[int]
@@ -34,7 +34,64 @@ class JobCreateRequest(BaseModel):
     is_active: Optional[bool] = True
 
 class Config:
-    orm_mode = True
+    from_attributes = True
 
 class JobList(BaseModel):
     jobs: List[JobCreateRequest]
+
+class FavoriteJobCreate(BaseModel):
+    user_id: int
+    email: str
+    title: str
+    company_name: Optional[str]
+    company_link: Optional[str]
+    job_link: Optional[str]
+    location: Optional[str]
+    city: Optional[str]
+    source_city: Optional[str]
+    salary: Optional[str]
+    job_type: Optional[str]
+    job_shift: Optional[str]
+    experience: Optional[str]
+    education: Optional[str]
+    posted_date: Optional[str]
+    apply_before: Optional[str]
+    job_description: Optional[str]
+    skills: Optional[str]
+    job_source: Optional[str]
+    is_active: Optional[bool] = True
+
+    class Config:
+        from_attributes = True
+
+
+
+class FavoriteJobResponse(BaseModel):
+    user_id: int
+    job_id: int
+    email: str
+    title: str
+    company_name: Optional[str]
+    company_link: Optional[str]
+    job_link: Optional[str]
+    location: Optional[str]
+    city: Optional[str]
+    source_city: Optional[str]
+    salary: Optional[str]
+    job_type: Optional[str]
+    job_shift: Optional[str]
+    experience: Optional[str]
+    education: Optional[str]
+    posted_date: Optional[str]
+    apply_before: Optional[str]
+    job_description: Optional[str]
+    skills: Optional[str]
+    job_source: Optional[str]
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+class Delete_Favorite_Job(BaseModel):
+    fav_id: int
+    user_id: int

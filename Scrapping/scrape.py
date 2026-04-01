@@ -55,7 +55,7 @@ async def insert_jobs_from_json(json_path: str):
 async def start_scraper():
     import subprocess
 
-    def run_node_scraper():
+    async def run_node_scraper():
         print("🚀 Running Puppeteer scraper (JavaScript)...")
         subprocess.run(["node", "Scrapping/Scrappers/rozee.pk_new_scrapper.js"], capture_output=True, text=True)
         
@@ -73,7 +73,7 @@ async def start_scraper():
         
 
     print("=== Starting All Scrapers ===")
-    run_node_scraper()
+    #await run_node_scraper()
     await run_other_python_scrapers()
     clean()
     await insert_jobs_from_json("Scrapping/Scrappers/Data/final_jobs.json")
