@@ -1,7 +1,7 @@
 // ============================================================
 //  Rozee.pk Auto-Apply Script — Playwright
-//  Usage: node Rozee_apply.js <upload-page-url> <resume-path> [expected-salary]
-//  Env override: ROZEE_RESUME_PATH, ROZEE_EXPECTED_SALARY
+//  Usage: node Rozee_apply.js <upload-page-url> <resume-path> [expected-salary] [gender]
+//  Env override: ROZEE_RESUME_PATH, ROZEE_EXPECTED_SALARY, ROZEE_GENDER
 // ============================================================
 
 const { chromium } = require('playwright');
@@ -9,7 +9,8 @@ const path = require('path');
 
 const CONFIG = {
   resumePath:     process.env.ROZEE_RESUME_PATH || process.argv[3],
-  expectedSalary: process.env.ROZEE_EXPECTED_SALARY || process.argv[4] || '1000',
+  expectedSalary: process.env.ROZEE_EXPECTED_SALARY || process.argv[4] || '70000',
+  gender:         process.env.ROZEE_GENDER || process.argv[5] || 'Male',
   headless:       false,
   slowMo:         800,
   dryRun:         true,     // ← set false to actually submit
@@ -63,7 +64,14 @@ async function applyToJob(uploadUrl) {
     await salaryInput.dispatchEvent('input');
     console.log(`✅  Salary: ${CONFIG.expectedSalary}`);
 
-    // 4. Survey questions (pause for manual fill if present)
+    // 4. Select gender
+    console.log('\n🧑  Selecting gender…');
+    const genderSelect = page.locator('select#gender, select[name="gender"]').first();
+    await genderSelect.waitFor({ state: 'visible', timeout: 5000 });
+    await genderSelect.selectOption({ label: CONFIG.gender });
+    console.log(`✅  Gender: ${CONFIG.gender}`);
+
+    // 5. Survey questions (pause for manual fill if present)
     await page.waitForTimeout(1200);
     const surveyContainer = page.locator('#surveyContainer.loaded');
     const hasSurvey = await surveyContainer.isVisible().catch(() => false);
@@ -76,7 +84,7 @@ async function applyToJob(uploadUrl) {
       }
     }
 
-    // 5. Submit
+    // 6. Submit
     if (CONFIG.dryRun) {
       console.log('\n🚫  DRY RUN — not submitting. Set dryRun: false when ready.');
       await page.waitForTimeout(10000);
@@ -115,7 +123,7 @@ async function applyToJob(uploadUrl) {
 
 const uploadUrl = process.argv[2];
 if (!uploadUrl) {
-  console.error('❌  Usage: node Rozee_apply.js <upload-page-url> <resume-path> [expected-salary]');
+  console.error('❌  Usage: node Rozee_apply.js <upload-page-url> <resume-path> [expected-salary] [gender]');
   process.exit(1);
 }
 
@@ -123,4 +131,11 @@ if (!CONFIG.resumePath) {
   console.error('❌  Missing resume path. Pass via args or ROZEE_RESUME_PATH env var.');
   process.exit(1);
 }
+
+const validGenders = ['Male', 'Female', 'Transgender'];
+if (!validGenders.includes(CONFIG.gender)) {
+  console.error(`❌  Invalid gender "${CONFIG.gender}". Must be one of: ${validGenders.join(', ')}`);
+  process.exit(1);
+}
+
 applyToJob(uploadUrl);
