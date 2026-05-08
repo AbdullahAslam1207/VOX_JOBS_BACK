@@ -54,8 +54,45 @@ async def add_jobs(job_list: JobList,db: db_dependency):
     return {"message": f"{len(job_list.jobs)} jobs successfully added."}
    
 @router.get("/Get_jobs", response_model=list[JobCreateRequest])
-async def get_jobs(db: db_dependency):
-    jobs = db.query(Job).all()
+async def get_jobs(
+    db: db_dependency,
+    query: str | None = None,
+    location: str | None = None,
+    city: str | None = None,
+    only_remote: bool = False,
+    limit: int | None = Query(default=None, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    jobs_query = db.query(Job)
+
+    if query:
+        query_term = f"%{query.strip()}%"
+        jobs_query = jobs_query.filter(
+            or_(
+                Job.title.ilike(query_term),
+                Job.company_name.ilike(query_term),
+                Job.location.ilike(query_term),
+                Job.city.ilike(query_term),
+                Job.job_description.ilike(query_term),
+                Job.skills.ilike(query_term),
+            )
+        )
+
+    if location:
+        jobs_query = jobs_query.filter(Job.location.ilike(f"%{location.strip()}%"))
+
+    if city:
+        jobs_query = jobs_query.filter(Job.city.ilike(city.strip()))
+
+    if only_remote:
+        jobs_query = jobs_query.filter(Job.location.ilike("%remote%"))
+
+    jobs_query = jobs_query.order_by(Job.id.desc())
+
+    if limit is not None:
+        jobs_query = jobs_query.offset(offset).limit(limit)
+
+    jobs = jobs_query.all()
     return jobs
 
 ALLOWED_CITIES = {"Lahore", "Karachi", "Islamabad", "Rawalpindi"}

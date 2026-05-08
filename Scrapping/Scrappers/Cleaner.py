@@ -126,7 +126,7 @@ def merge_all_sources(jobz_data, mustakbil_data, rozee_citywise_data, output_pat
     all_jobs = []
     
     # Jobz.pk
-    all_jobs.extend(clean_jobz_data(jobz_data))
+    #all_jobs.extend(clean_jobz_data(jobz_data))
     
     # Mustakbil
     all_jobs.extend(clean_mustakbil_data(mustakbil_data))

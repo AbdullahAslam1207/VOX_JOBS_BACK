@@ -6,6 +6,8 @@
 
 const { chromium } = require('playwright');
 
+const JOB_URL = process.argv[2];
+
 const CONFIG = {
   email:            process.env.MUSTAQBIL_EMAIL || process.argv[3],
   password:         process.env.MUSTAQBIL_PASSWORD || process.argv[4],
@@ -15,22 +17,70 @@ const CONFIG = {
   dryRun:           false,  // true = stop before final Submit
 };
 
-async function login(page) {
-  console.log('🔑  Navigating to login page…');
-  await page.goto('https://www.mustakbil.com/account/jobseeker', { waitUntil: 'networkidle' });
-  await page.fill('input[type="email"], input[formcontrolname="email"]', CONFIG.email);
-  await page.fill('input[type="password"], input[formcontrolname="password"]', CONFIG.password);
-  await page.click('button[type="submit"], .md-button.primary');
-  await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
-  console.log('✅  Logged in');
+async function loginViaNavbar(page) {
+  console.log('🔑  Clicking navbar Login button…');
+
+  // The login button is an Angular-routed <a> — clicking it navigates to the login page.
+  // We use page.locator + Promise.all to catch the navigation that Angular triggers.
+  const loginBtn = page.locator('a.login-button').first();
+  await loginBtn.waitFor({ state: 'visible', timeout: 5000 });
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'networkidle', timeout: 10000 }).catch(() => {}),
+    loginBtn.click(),
+  ]);
+
+  console.log(`   Navigated to: ${page.url()}`);
+
+  // Wait for Angular to render the email/password fields
+  await page.waitForSelector(
+    'input[type="email"], input[formcontrolname="email"]',
+    { state: 'visible', timeout: 10000 }
+  );
+  await page.waitForTimeout(500);
+
+  console.log('   Filling credentials…');
+  const emailInput = page.locator('input[type="email"], input[formcontrolname="email"]').first();
+const passwordInput = page.locator('input[type="password"], input[formcontrolname="password"]').first();
+
+await emailInput.click();
+await emailInput.fill(CONFIG.email);
+await emailInput.press('Tab');   // trigger Angular change detection
+
+await passwordInput.click();
+await passwordInput.fill(CONFIG.password);
+await passwordInput.press('Tab'); // VERY IMPORTANT
+
+  // Submit and wait for post-login redirect
+const loginSubmitBtn = page.locator('button:has-text("Login")').first();
+
+await loginSubmitBtn.waitFor({ state: 'visible' });
+
+console.log('🖱️ Clicking login submit...');
+
+// Try normal click
+try {
+  await loginSubmitBtn.click({ force: true });
+} catch (e) {
+  console.log('⚠️ Click failed, trying Enter key...');
+  await passwordInput.press('Enter');
+}
+
+
+  await page.waitForTimeout(1500);
+  console.log(`✅  Logged in — now at: ${page.url()}`);
+
+  // If login redirected away from the job page, go back to it
+  if (!page.url().includes(new URL(JOB_URL).pathname)) {
+    console.log('🔄  Not on job page — navigating back…');
+    await page.goto(JOB_URL, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+  }
 }
 
 async function handleWizardStep(page, stepNumber) {
   console.log(`\n📋  Step ${stepNumber}: setting toggles…`);
 
-  // The checkbox inputs are hidden by CSS — Angular Material renders a visible
-  // <span class="md-switch__track"> as the clickable pill. We read the hidden
-  // checkbox to know current state, but click the visible track to toggle it.
   const checkboxes = await page.locator('.wizard-step input[type="checkbox"][role="switch"]').all();
   const tracks     = await page.locator('.wizard-step .md-switch__track').all();
 
@@ -40,7 +90,6 @@ async function handleWizardStep(page, stepNumber) {
     const isChecked = await checkboxes[i].isChecked();
 
     if (isChecked !== CONFIG.answerAllToggles) {
-      // Force-click via JavaScript to bypass visibility check
       await tracks[i].evaluate(el => el.click());
       await page.waitForTimeout(300);
       console.log(`   Toggle ${i + 1} → ${CONFIG.answerAllToggles ? 'ON ✓' : 'OFF ✗'}`);
@@ -52,7 +101,7 @@ async function handleWizardStep(page, stepNumber) {
   await page.waitForTimeout(500);
 }
 
-async function applyToJob(jobUrl) {
+async function applyToJob() {
   const browser = await chromium.launch({ headless: CONFIG.headless, slowMo: CONFIG.slowMo });
   const context = await browser.newContext({
     viewport:  { width: 1280, height: 800 },
@@ -61,22 +110,24 @@ async function applyToJob(jobUrl) {
   const page = await context.newPage();
 
   try {
-    // 1. Login
-    await login(page);
-
-    // 2. Open job page
-    console.log(`\n🌐  Opening job page: ${jobUrl}`);
-    await page.goto(jobUrl, { waitUntil: 'networkidle' });
+    // 1. Open job page
+    console.log(`\n🌐  Opening job page: ${JOB_URL}`);
+    await page.goto(JOB_URL, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);
+
+    // 2. Click Login in navbar → fill credentials → return to job page
+    await loginViaNavbar(page);
 
     // 3. Click Apply Now
     console.log('🖱️   Clicking Apply Now…');
-    const applyBtn = page.locator('button.md-button.primary:has-text("Apply Now")').first();
+    const applyBtn = page.locator(
+      'button.md-button.primary:has-text("Apply Now"), button.md-navigation-bar__primary-btn:has-text("Apply Now")'
+    ).first();
     await applyBtn.waitFor({ state: 'visible', timeout: 10000 });
     await applyBtn.click();
     await page.waitForTimeout(1500);
 
-    // 4. Wait for wizard
+    // 4. Wait for apply wizard
     await page.waitForSelector('job-apply .apply-container', { timeout: 10000 });
     console.log('✅  Apply wizard opened');
 
@@ -133,8 +184,7 @@ async function applyToJob(jobUrl) {
 }
 
 // ── Entry point ──────────────────────────────────────────────
-const jobUrl = process.argv[2];
-if (!jobUrl) {
+if (!JOB_URL) {
   console.error('❌  Usage: node Mustaqbil_apply.js <job-url> [mustaqbil-email] [mustaqbil-password]');
   process.exit(1);
 }
@@ -143,4 +193,5 @@ if (!CONFIG.email || !CONFIG.password) {
   console.error('❌  Missing Mustaqbil credentials. Pass via args or MUSTAQBIL_EMAIL/MUSTAQBIL_PASSWORD env vars.');
   process.exit(1);
 }
-applyToJob(jobUrl);
+
+applyToJob();

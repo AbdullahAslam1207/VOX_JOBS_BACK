@@ -63,7 +63,7 @@ async def start_scraper():
     async def run_other_python_scrapers():
         result = await fetch_jobs()
         print("🐍 Running other Python scrapers...")
-        # subprocess.run(["python", "Scrapping/Scrappers/fetch_jobz_jobs.py"])
+        
         subprocess.run(["python", "Scrapping/Scrappers/fetch_mustaqbil_jobs.py"])
         
     def clean():
@@ -73,7 +73,7 @@ async def start_scraper():
         
 
     print("=== Starting All Scrapers ===")
-    #await run_node_scraper()
+    await run_node_scraper()
     await run_other_python_scrapers()
     clean()
     await insert_jobs_from_json("Scrapping/Scrappers/Data/final_jobs.json")

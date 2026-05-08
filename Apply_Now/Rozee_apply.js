@@ -13,7 +13,7 @@ const CONFIG = {
   gender:         process.env.ROZEE_GENDER || process.argv[5] || 'Male',
   headless:       false,
   slowMo:         800,
-  dryRun:         true,     // ← set false to actually submit
+  dryRun:         false,     // ← set false to actually submit
 };
 
 async function applyToJob(uploadUrl) {

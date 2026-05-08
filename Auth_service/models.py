@@ -67,6 +67,38 @@ class UserLoginRequest(BaseModel):
     def validate_password(cls, v: str) -> str:
         return validate_password_strength(v)
 
+
+class UserProfileResponse(BaseModel):
+    user_id: int
+    fullname: str
+    email: EmailStr
+    role: str
+
+
+class UserListItemResponse(BaseModel):
+    user_id: int
+    fullname: str
+    email: EmailStr
+    role: str
+    is_active: bool
+
+
+class UpdateUserProfileRequest(BaseModel):
+    current_email: EmailStr
+    fullname: str = Field(..., min_length=2, max_length=50)
+    email: EmailStr
+
+
+class UpdatePasswordRequest(BaseModel):
+    email: EmailStr
+    current_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return validate_password_strength(v)
+
 class UserOut(BaseModel):
     id: int
     username: str
