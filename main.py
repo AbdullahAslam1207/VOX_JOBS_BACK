@@ -13,6 +13,7 @@ from CRUD import CRUD as CRUD
 from Scrapping import scrape as Scrapping
 from conversations import router as conversation_router
 from Apply_Now import router as apply_router
+from Recruiter_service import router as recruiter_router
 
 
 
@@ -22,6 +23,7 @@ app.include_router(CRUD.router)
 app.include_router(Scrapping.router)
 app.include_router(conversation_router)
 app.include_router(apply_router.router)
+app.include_router(recruiter_router.router)
 
 
 origin = "http://localhost:5173"  # Adjust this to your frontend URL

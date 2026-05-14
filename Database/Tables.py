@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON, LargeBinary
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON, LargeBinary, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from Database.database import Base
@@ -16,6 +16,8 @@ class User(Base):
     hashed_password = Column(String(512), nullable=False)
     role = Column(String(20), default="customer")  
     is_active = Column(Boolean, default=True)
+    company_name = Column(String(255), nullable=True)
+    company_website = Column(String(255), nullable=True)
     favorite_jobs = relationship("FavoriteJob", back_populates="user", cascade="all, delete")
     profile_pictures = relationship("UserProfilePicture", back_populates="user", cascade="all, delete-orphan")
     resumes = relationship("UserResume", back_populates="user", cascade="all, delete-orphan")
@@ -45,6 +47,8 @@ class Job(Base):
     skills = Column(Text)
     job_source = Column(String(100))
     is_active = Column(Boolean, default=True)
+    recruiter_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    application_status = Column(String(20), nullable=False, default="open")
 
 
 class FavoriteJob(Base):
@@ -160,6 +164,7 @@ class ApplyRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=True, index=True)
     email = Column(String(255), index=True, nullable=False)
     url = Column(String(1000), nullable=False)
     site = Column(String(50), nullable=False)
@@ -176,9 +181,11 @@ class ApplyRun(Base):
 
 class AppliedJob(Base):
     __tablename__ = "applied_jobs"
+    __table_args__ = (UniqueConstraint("user_id", "job_id", "site", name="uq_applied_jobs_user_job_site"),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=True, index=True)
     email = Column(String(255), index=True, nullable=False)
     site = Column(String(50), nullable=False)
     job_url = Column(String(1000), nullable=False)

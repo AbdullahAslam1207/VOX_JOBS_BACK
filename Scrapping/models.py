@@ -32,3 +32,5 @@ class JobAdd(BaseModel):
     skills: Optional[str]
     job_source: Optional[str] = Field(None, max_length=100)
     is_active: Optional[bool] = True
+    recruiter_id: Optional[int] = None
+    application_status: Optional[str] = Field(default="open", max_length=20)

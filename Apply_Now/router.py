@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy.exc import IntegrityError
 from fastapi.responses import Response
 
 from Apply_Now.models import (
@@ -22,11 +23,13 @@ from Apply_Now.models import (
     MustaqbilCredentialResponse,
     ProfilePictureMetadataResponse,
     ProfilePictureUploadResponse,
+    PlatformApplyRequest,
+    PlatformApplyResponse,
     ResumeMetadataResponse,
     ResumeUploadResponse,
 )
 from Database.Database_connection import db_dependency
-from Database.Tables import AppliedJob, ApplyRun, MustaqbilCredential, User, UserProfilePicture, UserResume
+from Database.Tables import AppliedJob, ApplyRun, Job, MustaqbilCredential, User, UserProfilePicture, UserResume
 from Database.database import sessionlocal
 
 router = APIRouter(prefix="/apply", tags=["apply"])
@@ -198,6 +201,7 @@ def _run_apply_job(run_id: int, script_name: str, url: str, job_title: str | Non
 
         applied_job = AppliedJob(
             user_id=run.user_id,
+            job_id=run.job_id,
             email=run.email,
             site=run.site,
             job_url=run.url,
@@ -217,6 +221,58 @@ def _run_apply_job(run_id: int, script_name: str, url: str, job_title: str | Non
             except OSError:
                 pass
         db.close()
+
+
+@router.post("/platform", response_model=PlatformApplyResponse, status_code=201)
+async def apply_to_platform_job(payload: PlatformApplyRequest, db: db_dependency):
+    user = db.query(User).filter(User.email == payload.email.strip().lower()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    job = db.query(Job).filter(Job.id == payload.job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not bool(job.is_active) or (job.application_status or "open") != "open":
+        raise HTTPException(status_code=400, detail="This job is not open for applications")
+
+    resume = db.query(UserResume).filter(UserResume.user_id == user.id).first()
+    if not resume:
+        raise HTTPException(status_code=400, detail="Upload your resume before applying")
+
+    existing = (
+        db.query(AppliedJob)
+        .filter(AppliedJob.user_id == user.id, AppliedJob.job_id == job.id, AppliedJob.site == "platform")
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="You have already applied to this job")
+
+    applied_job = AppliedJob(
+        user_id=user.id,
+        job_id=job.id,
+        email=user.email,
+        site="platform",
+        job_url=job.job_link or f"platform-job-{job.id}",
+        job_title=job.title,
+        company_name=job.company_name,
+        status="submitted",
+        applied_at=datetime.utcnow(),
+    )
+    db.add(applied_job)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="You have already applied to this job") from exc
+
+    db.refresh(applied_job)
+    return PlatformApplyResponse(
+        application_id=applied_job.id,
+        status=applied_job.status,
+        message="Application submitted successfully",
+    )
 
 
 @router.post("/run", response_model=ApplyRunCreateResponse)
@@ -254,6 +310,7 @@ async def start_apply_run(payload: ApplyRunRequest, background_tasks: Background
 
     run = ApplyRun(
         user_id=user.id,
+        job_id=payload.job_id,
         email=user.email,
         url=str(payload.url),
         site=site,

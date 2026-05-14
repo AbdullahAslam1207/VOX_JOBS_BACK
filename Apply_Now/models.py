@@ -9,6 +9,7 @@ class ApplyRunRequest(BaseModel):
     url: HttpUrl
     job_title: Optional[str] = None
     company_name: Optional[str] = None
+    job_id: Optional[int] = None
 
 
 class ApplyRunCreateResponse(BaseModel):
@@ -17,9 +18,21 @@ class ApplyRunCreateResponse(BaseModel):
     site: str
 
 
+class PlatformApplyRequest(BaseModel):
+    email: EmailStr
+    job_id: int
+
+
+class PlatformApplyResponse(BaseModel):
+    application_id: int
+    status: str
+    message: str
+
+
 class ApplyRunStatusResponse(BaseModel):
     id: int
     email: str
+    job_id: Optional[int] = None
     url: str
     site: str
     status: str
@@ -83,6 +96,7 @@ class MustaqbilCredentialResponse(BaseModel):
 class AppliedJobResponse(BaseModel):
     id: int
     user_id: int
+    job_id: Optional[int] = None
     email: str
     site: str
     job_url: str

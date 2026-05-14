@@ -4,6 +4,7 @@ from typing import Annotated,Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel ,EmailStr, Field, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -31,19 +32,38 @@ router = APIRouter(
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, user: CreateUserRequest):
-    existing_user = db.query(User).filter(User.email == user.email).first()
+    normalized_email = user.email.strip().lower()
+    normalized_fullname = user.fullname.strip()
+
+    existing_user = db.query(User).filter(User.email == normalized_email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    existing_name = db.query(User).filter(User.fullname == normalized_fullname).first()
+    if existing_name:
+        raise HTTPException(status_code=400, detail="Full name already registered")
+
     validate_password_strength(user.password)
     new_user = User(
-        fullname=user.fullname,
-        email=user.email,
+        fullname=normalized_fullname,
+        email=normalized_email,
         hashed_password=bcrypt_context.hash(user.password),
         role=user.role,       
         is_active=True
     )
     db.add(new_user)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        error_message = str(exc.orig)
+        if "users_email_key" in error_message:
+            raise HTTPException(status_code=400, detail="Email already registered") from exc
+        if "users_fullname_key" in error_message:
+            raise HTTPException(status_code=400, detail="Full name already registered") from exc
+        raise HTTPException(status_code=400, detail="User already exists") from exc
+
     db.refresh(new_user)
     return {"User Registered Succesfully"}
 

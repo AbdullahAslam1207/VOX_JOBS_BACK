@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from Database.Database_connection import db_dependency
 from Database.Tables import User
 from Auth_service.models import create_access_token,CreateUserRequest,bcrypt_context,UserLoginRequest,Token ,validate_password_strength
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 import re
 from Database.Database_connection import db_dependency
 from Database.Tables import Job, FavoriteJob
@@ -63,7 +63,7 @@ async def get_jobs(
     limit: int | None = Query(default=None, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    jobs_query = db.query(Job)
+    jobs_query = db.query(Job).filter(func.coalesce(Job.application_status, "open") == "open")
 
     if query:
         query_term = f"%{query.strip()}%"
@@ -111,7 +111,7 @@ async def get_jobs_by_city(
         )
 
     # Fetch jobs from the allowed city
-    jobs = db.query(Job).filter(Job.city == city).all()
+    jobs = db.query(Job).filter(Job.city == city, func.coalesce(Job.application_status, "open") == "open").all()
     return jobs
 
 @router.get("/get_jobs_by_title", response_model=list[JobCreateRequest])
@@ -138,7 +138,7 @@ async def get_jobs_by_title_and_city(query: str , db: db_dependency):
     if city:
         filters.append(Job.city.ilike(city))
 
-    exact_matches = db.query(Job).filter(and_(*filters)).all()
+    exact_matches = db.query(Job).filter(and_(*filters), func.coalesce(Job.application_status, "open") == "open").all()
     if exact_matches:
         return exact_matches
 
@@ -147,12 +147,12 @@ async def get_jobs_by_title_and_city(query: str , db: db_dependency):
     title_condition = or_(*[Job.title.ilike(f"%{word}%") for word in title_keywords])
 
     if city:
-        partial_matches = db.query(Job).filter(and_(title_condition, Job.city.ilike(city))).all()
+        partial_matches = db.query(Job).filter(and_(title_condition, Job.city.ilike(city)), func.coalesce(Job.application_status, "open") == "open").all()
         if partial_matches:
             return partial_matches
 
     # ---------------------- STEP 3: Fallback — search by title only ----------------------
-    fallback_matches = db.query(Job).filter(title_condition).all()
+    fallback_matches = db.query(Job).filter(title_condition, func.coalesce(Job.application_status, "open") == "open").all()
     return fallback_matches
 @router.post("/favorite/add", status_code=201)
 async def add_favorite_job(fav_job: FavoriteJobCreate, db: db_dependency):
